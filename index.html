@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Slingfield — Neon Gravity</title>
+  <style>
+    :root{--bg1:#0b1220;--bg2:#030712;--sky:#22d3ee;--vio:#a78bfa;--ink:#e2e8f0}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg1),var(--bg2));font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+    .wrap{width:min(1100px,96vw);height:min(78vh,800px);min-height:520px;border-radius:18px;position:relative;box-shadow:0 12px 40px rgba(0,0,0,.45);overflow:hidden}
+    canvas{display:block;width:100%;height:100%}
+    .glow{pointer-events:none;position:absolute;inset:-15%;opacity:.6;background:
+      radial-gradient(60% 50% at 30% 30%, rgba(34,211,238,0.12) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(50% 40% at 80% 20%, rgba(167,139,250,0.10) 0%, rgba(0,0,0,0) 70%),
+      radial-gradient(60% 50% at 60% 80%, rgba(34,197,94,0.08) 0%, rgba(0,0,0,0) 70%)}
+    .hud{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 16px;color:#cbd5e1;pointer-events:none}
+    .pill{background:rgba(255,255,255,.06);border-radius:999px;padding:6px 10px;font-size:12px}
+    .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+    .card{max-width:560px;width:min(92%,560px);background:rgba(0,0,0,.42);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.09);padding:20px;border-radius:22px;color:#e5e7eb;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .title{display:flex;gap:8px;align-items:center;margin-bottom:8px;font-weight:700}
+    .btns{display:flex;gap:10px;margin-top:12px}
+    button{cursor:pointer;border:0;border-radius:12px;height:40px;padding:0 14px;font-weight:600}
+    .primary{color:#fff;background:linear-gradient(90deg,var(--sky),var(--vio));box-shadow:0 6px 18px rgba(34,211,238,.28)}
+    .ghost{color:#e5e7eb;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+    .cooldown{position:relative;width:28px;height:28px}
+    .link{color:#93c5fd}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="glow" aria-hidden></div>
+    <canvas id="game"></canvas>
+
+    <div class="hud">
+      <div style="display:flex;gap:8px;align-items:center"><span>🚀</span><span style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#94a3b8">Slingfield</span></div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <div class="pill">Score <b id="score">0</b></div>
+        <div class="pill">Best <b id="best">0</b></div>
+        <div class="cooldown"><svg viewBox="0 0 36 36" width="28" height="28">
+          <path d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="3"/>
+          <path id="cd" d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round" pathLength="1"/>
+          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs>
+        </svg></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="menu">
+      <div class="card">
+        <div class="title">✨ <span>Slingfield — Neon Gravity</span></div>
+        <p style="margin:0 0 12px 0; font-size:14px; color:#cbd5e1">Drop short‑lived gravity wells to bend the comet. Collect shards, avoid mines. Click / tap to place a well. Max two wells, ~1 s cooldown.</p>
+        <div class="btns">
+          <button class="primary" id="startBtn">New Game</button>
+          <button class="ghost" id="howBtn" title="Quick help">How to Play</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="gameover" style="display:none">
+      <div class="card">
+        <div class="title">💥 <span>Game Over</span></div>
+        <p style="margin:0 0 12px 0; font-size:14px; color:#cbd5e1">Final score: <b id="finalScore">0</b> | Best: <b id="finalBest">0</b></p>
+        <div class="btns">
+          <button class="primary" id="retryBtn">Try Again</button>
+          <button class="ghost" id="menuBtn">Back to Menu</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(function(){
+  // -------- Utilities --------
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const dist2=(a,b)=>{const dx=a.x-b.x,dy=a.y-b.y;return dx*dx+dy*dy};
+  const easeOutCubic=(t)=>1-Math.pow(1-t,3);
+  const noise2D=(x,y,t)=>{const s=Math.sin,c=Math.cos;return s(x*2+t)*c(y*1.7-t*0.9)*0.5+0.5};
+
+  // -------- DOM / Canvas --------
+  const canvas=document.getElementById('game');
+  const ctx=canvas.getContext('2d');
+  const scoreEl=document.getElementById('score');
+  const bestEl=document.getElementById('best');
+  const cdPath=document.getElementById('cd');
+
+  const menu=document.getElementById('menu');
+  const gameover=document.getElementById('gameover');
+  const startBtn=document.getElementById('startBtn');
+  const howBtn=document.getElementById('howBtn');
+  const retryBtn=document.getElementById('retryBtn');
+  const menuBtn=document.getElementById('menuBtn');
+  const finalScore=document.getElementById('finalScore');
+  const finalBest=document.getElementById('finalBest');
+
+  const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+
+  const GS={ctx,w:0,h:0,dpr,last:performance.now(),time:0,orb:null,wells:[],shard:null,mines:[],effects:[],cooldownMs:0,level:1,pointer:{x:0,y:0},phase:'menu',best:0};
+
+  function resize(){
+    const parent=canvas.parentElement;
+    const bw=parent.clientWidth, bh=Math.max(520,Math.min(900,parent.clientHeight));
+    canvas.width=Math.floor(bw*dpr); canvas.height=Math.floor(bh*dpr);
+    canvas.style.width=bw+'px'; canvas.style.height=bh+'px';
+    GS.w=canvas.width; GS.h=canvas.height;
+    if (GS.phase!=='playing') initGame();
+  }
+  new ResizeObserver(resize).observe(canvas.parentElement); resize();
+
+  canvas.addEventListener('pointermove',e=>{
+    const r=canvas.getBoundingClientRect(); GS.pointer.x=(e.clientX-r.left)*dpr; GS.pointer.y=(e.clientY-r.top)*dpr;
+  });
+  canvas.addEventListener('pointerdown',()=>{
+    if (GS.phase!=='playing') return; if (GS.cooldownMs>0) return;
+    dropWell(GS.pointer.x,GS.pointer.y); GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
+  });
+
+  // -------- Game init --------
+  function initGame(){
+    GS.time=0; GS.level=1; GS.effects.length=0; GS.wells.length=0; GS.cooldownMs=0;
+    GS.orb={pos:{x:GS.w*0.3,y:GS.h*0.6}, vel:{x:0.12*dpr,y:-0.10*dpr}, r:9, score:0};
+    GS.shard=spawnShard(48*dpr,48*dpr,GS.w-96*dpr,GS.h-96*dpr);
+    GS.mines=spawnMines(3);
+    updateHud();
+  }
+
+  function spawnShard(minX,minY,maxX,maxY){ return { pos:{x:rand(minX,maxX),y:rand(minY,maxY)}, r:8 }; }
+  function spawnMines(n){
+    const arr=[]; for(let i=0;i<n;i++) arr.push({ base:{x:rand(GS.w*0.2,GS.w*0.8), y:rand(GS.h*0.2,GS.h*0.8)}, amp:{x:rand(40,140)*(Math.random()<0.5?-1:1), y:rand(30,120)*(Math.random()<0.5?-1:1)}, speed:rand(0.0004,0.001)*(Math.random()<0.5?-1:1), t:Math.random()*Math.PI*2, r:rand(10,16), hue:rand(350,20) });
+    return arr;
+  }
+  const minePos=m=>({x:m.base.x+Math.sin(m.t)*m.amp.x, y:m.base.y+Math.cos(m.t*1.3)*m.amp.y});
+
+  function dropWell(x,y){ if(GS.wells.length>=2) GS.wells.shift(); GS.wells.push({pos:{x,y},born:GS.time,life:1200}); }
+  function addPulse(x,y,r0,r1,color){ GS.effects.push({x,y,r0,r1,life:520,born:GS.time,color}); }
+
+  // -------- Render primitives --------
+  function glowCircle(x,y,r,color,blur=28){ ctx.save(); ctx.shadowBlur=blur; ctx.shadowColor=color; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+  function ring(x,y,r,color,w=3){ ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=w; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+  function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,GS.h); g.addColorStop(0,'#0b1220'); g.addColorStop(1,'#030712'); ctx.fillStyle=g; ctx.fillRect(0,0,GS.w,GS.h); }
+  function drawFlowfield(){ ctx.save(); ctx.globalAlpha=.08; ctx.strokeStyle='#7dd3fc'; ctx.lineWidth=1; const step=36; for(let y=40;y<GS.h;y+=step){ ctx.beginPath(); for(let x=20;x<GS.w;x+=step){ const t=noise2D(x*0.0012,y*0.0012,GS.time*0.0002); const off=Math.sin(t*Math.PI*2)*14; ctx.lineTo(x+off,y);} ctx.stroke(); } ctx.restore(); }
+
+  function updateHud(){ scoreEl.textContent=GS.orb.score; bestEl.textContent=GS.best; }
+  function drawUIHud(){ ctx.save(); ctx.font=`600 ${Math.max(14,Math.min(22,GS.w/40))}px ui-sans-serif,system-ui,-apple-system`; ctx.textAlign='center'; ctx.fillStyle='rgba(226,232,240,.72)'; if(GS.phase!=='playing'){ ctx.fillText('Click / tap to drop a gravity well', GS.w/2, 48); } ring(GS.pointer.x,GS.pointer.y,18,'rgba(125,211,252,.35)',2); ctx.restore(); }
+
+  // -------- Game loop --------
+  let raf=null; function loop(){
+    raf=requestAnimationFrame(loop);
+    const now=performance.now(); const dt=Math.min(50, now-GS.last); GS.last=now; GS.time+=dt;
+
+    drawBackground();
+    GS.cooldownMs=Math.max(0, GS.cooldownMs-dt); cdPath.style.strokeDasharray='1'; cdPath.style.strokeDashoffset=String(1- (1-GS.cooldownMs/1000));
+
+    // trail fade
+    ctx.save(); ctx.globalCompositeOperation='source-over'; ctx.fillStyle='rgba(0,0,0,0.24)'; ctx.fillRect(0,0,GS.w,GS.h); ctx.restore();
+
+    if (GS.phase==='playing') stepGame(dt);
+    renderGame();
+    drawUIHud();
+  }
+
+  function stepGame(dt){
+    const o=GS.orb, dpr=GS.dpr;
+    // wells decay + forces
+    GS.wells=GS.wells.filter(w=>GS.time-w.born<w.life);
+    let ax=0, ay=0; const k=1200*dpr; for(const w of GS.wells){ const dx=w.pos.x-o.pos.x, dy=w.pos.y-o.pos.y; const d2=dx*dx+dy*dy+2000; const f=k/d2; ax+=f*dx; ay+=f*dy; }
+    o.vel.x+=ax*dt/1000; o.vel.y+=ay*dt/1000; o.vel.x*=Math.pow(0.9995,dt); o.vel.y*=Math.pow(0.9995,dt); o.pos.x+=o.vel.x*dt; o.pos.y+=o.vel.y*dt;
+    // bounds
+    const pad=18*dpr; if(o.pos.x<pad){o.pos.x=pad;o.vel.x=Math.abs(o.vel.x)*.92} if(o.pos.x>GS.w-pad){o.pos.x=GS.w-pad;o.vel.x=-Math.abs(o.vel.x)*.92} if(o.pos.y<pad){o.pos.y=pad;o.vel.y=Math.abs(o.vel.y)*.92} if(o.pos.y>GS.h-pad){o.pos.y=GS.h-pad;o.vel.y=-Math.abs(o.vel.y)*.92}
+    // mines
+    for(const m of GS.mines) m.t+=m.speed*dt;
+    // shard
+    if (dist2(o.pos,GS.shard.pos) < Math.pow(o.r+GS.shard.r+4,2)){
+      o.score++; addPulse(GS.shard.pos.x,GS.shard.pos.y,20,220,'#a78bfa'); if(o.score%5===0){ GS.level++; const add=Math.min(1+Math.floor(GS.level/2),2); GS.mines.push(...spawnMines(add)); for(const m of GS.mines) m.speed*=1.06; }
+      GS.shard=spawnShard(48*dpr,48*dpr,GS.w-96*dpr,GS.h-96*dpr); updateHud();
+    }
+    // collisions
+    for(const m of GS.mines){ const p=minePos(m); if (dist2(o.pos,p) < Math.pow(o.r+m.r+1,2)){ addPulse(o.pos.x,o.pos.y,10,320,'#ef4444'); gameOver(); break; }}
+    // effects
+    GS.effects=GS.effects.filter(e=>GS.time-e.born<e.life);
+  }
+
+  function renderGame(){
+    drawFlowfield();
+    glowCircle(GS.shard.pos.x,GS.shard.pos.y,GS.shard.r,'#a78bfa');
+    for(const m of GS.mines){ const p=minePos(m); const color=`hsl(${m.hue},82%,60%)`; glowCircle(p.x,p.y,m.r,color,22); ctx.save(); ctx.fillStyle='rgba(255,255,255,.07)'; ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(2,m.r*.45),0,Math.PI*2); ctx.fill(); ctx.restore(); }
+    for(const w of GS.wells){ const t=(GS.time-w.born)/w.life; const r=60+40*(1-t); const a=.65*(1-t); ring(w.pos.x,w.pos.y,r,`rgba(125,211,252,${a})`); }
+    glowCircle(GS.orb.pos.x,GS.orb.pos.y,GS.orb.r+1,'#22d3ee',18); ctx.save(); ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(GS.orb.pos.x,GS.orb.pos.y,Math.max(2,GS.orb.r*.5),0,Math.PI*2); ctx.fill(); ctx.restore();
+    for(const e of GS.effects){ const t=clamp((GS.time-e.born)/e.life,0,1); const r=lerp(e.r0,e.r1,easeOutCubic(t)); ring(e.x,e.y,r,e.color,2+2*(1-t)); }
+  }
+
+  // -------- Phase control --------
+  function show(el, on){ el.style.display=on?'':'none'; }
+  function gameOver(){
+    GS.phase='gameover'; cancelAnimationFrame(raf); raf=null; finalScore.textContent=GS.orb.score; GS.best=Math.max(GS.best,GS.orb.score); finalBest.textContent=GS.best; updateHud(); show(menu,false); show(gameover,true);
+  }
+  function startGame(){ GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); if(!raf) loop(); }
+
+  startBtn.onclick=startGame;
+  retryBtn.onclick=startGame;
+  menuBtn.onclick=()=>{ GS.phase='menu'; show(menu,true); show(gameover,false); };
+  howBtn.onclick=()=>alert('Goal: Collect shards.\nControls: Click/tap to drop a short-lived gravity well that pulls the comet. Max two wells, ~1 s cooldown.\nAvoid: Moving mines.\nTips: Place wells slightly ahead of the comet to curve its path.');
+
+  // Kick idle loop for pretty background
+  loop();
+})();
+</script>
+</body>
+</html>
