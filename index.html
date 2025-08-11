@@ -8,8 +8,8 @@
     :root{--bg1:#0b1220;--bg2:#030712;--sky:#22d3ee;--vio:#a78bfa;--ink:#e2e8f0}
     *{box-sizing:border-box}
     html,body{height:100%;margin:0}
-    body{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--bg1),var(--bg2));font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
-    .wrap{width:min(1100px,96vw);height:min(78vh,800px);min-height:520px;border-radius:18px;position:relative;box-shadow:0 12px 40px rgba(0,0,0,.45);overflow:hidden}
+    body{background:linear-gradient(135deg,var(--bg1),var(--bg2));font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;overflow:hidden}
+    .wrap{position:fixed;inset:0;min-height:100vh;border-radius:0;box-shadow:none;overflow:hidden}
     canvas{display:block;width:100%;height:100%;touch-action:none}
     .glow{pointer-events:none;position:absolute;inset:-15%;opacity:.6;background:
       radial-gradient(60% 50% at 30% 30%, rgba(34,211,238,0.12) 0%, rgba(0,0,0,0) 70%),
@@ -43,6 +43,7 @@
           <path id="cd" d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round" pathLength="1"/>
           <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs>
         </svg></div>
+        <button id="soundBtn" class="pill" style="pointer-events:auto;cursor:pointer" aria-label="Toggle sound">🔊</button>
       </div>
     </div>
 
@@ -86,6 +87,7 @@
   const scoreEl=document.getElementById('score');
   const bestEl=document.getElementById('best');
   const cdPath=document.getElementById('cd');
+  const soundBtn=document.getElementById('soundBtn');
 
   const menu=document.getElementById('menu');
   const gameover=document.getElementById('gameover');
@@ -97,15 +99,20 @@
   const finalBest=document.getElementById('finalBest');
 
   const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
+  const MAX_WELLS=2;
 
-  const GS={ctx,w:0,h:0,dpr,last:performance.now(),time:0,orb:null,wells:[],shard:null,mines:[],effects:[],cooldownMs:0,level:1,pointer:{x:0,y:0},phase:'menu',best:0};
+  const GS={ctx,w:0,h:0,dpr,last:performance.now(),time:0,orb:null,wells:[],shard:null,mines:[],effects:[],cooldownMs:0,level:1,pointer:{x:0,y:0},phase:'menu',best:0,soundOn:true};
 
   const storedBest=Number(localStorage.getItem('slingfield_best'));
   if(!isNaN(storedBest)) GS.best=storedBest;
+  const storedSound=localStorage.getItem('slingfield_sound');
+  if(storedSound==='off') GS.soundOn=false;
+  soundBtn.textContent=GS.soundOn?'🔊':'🔇';
 
   // -------- Audio --------
   let audioCtx=null;
   function initAudio(){
+    if(!GS.soundOn) return;
     if(!audioCtx){
       const Ctx=window.AudioContext||window.webkitAudioContext;
       if(Ctx) audioCtx=new Ctx();
@@ -113,7 +120,7 @@
     if(audioCtx && audioCtx.state==='suspended') audioCtx.resume();
   }
   function playSound(freq,type='sine',duration=0.1,vol=0.15){
-    if(!audioCtx) return;
+    if(!GS.soundOn || !audioCtx) return;
     const osc=audioCtx.createOscillator();
     const gain=audioCtx.createGain();
     osc.type=type;
@@ -126,9 +133,16 @@
     osc.stop(audioCtx.currentTime+duration);
   }
 
+  soundBtn.onclick=()=>{
+    GS.soundOn=!GS.soundOn;
+    soundBtn.textContent=GS.soundOn?'🔊':'🔇';
+    if(GS.soundOn) initAudio();
+    localStorage.setItem('slingfield_sound', GS.soundOn?'on':'off');
+  };
+
   function resize(){
     const parent=canvas.parentElement;
-    const bw=parent.clientWidth, bh=Math.max(520,Math.min(900,parent.clientHeight));
+    const bw=parent.clientWidth, bh=parent.clientHeight;
     canvas.width=Math.floor(bw*dpr); canvas.height=Math.floor(bh*dpr);
     canvas.style.width=bw+'px'; canvas.style.height=bh+'px';
     GS.w=canvas.width; GS.h=canvas.height;
@@ -148,7 +162,7 @@
     if (GS.phase!=='playing') return;
     if (GS.cooldownMs>0) return;
     dropWell(GS.pointer.x,GS.pointer.y);
-    playSound(220,'square',0.08,0.2);
+    playSound(220,'sine',0.08,0.2);
     GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
   });
   canvas.addEventListener('keydown',e=>{
@@ -157,7 +171,7 @@
     if (GS.phase!=='playing') return;
     if (GS.cooldownMs>0) return;
     dropWell(GS.pointer.x,GS.pointer.y);
-    playSound(220,'square',0.08,0.2);
+    playSound(220,'sine',0.08,0.2);
     GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
   });
 
@@ -171,19 +185,34 @@
     updateHud();
   }
 
-  function spawnShard(minX,minY,maxX,maxY){ return { pos:{x:rand(minX,maxX),y:rand(minY,maxY)}, r:8 }; }
+  function spawnShard(minX,minY,maxX,maxY){ return { pos:{x:rand(minX,maxX),y:rand(minY,maxY)}, r:rand(14,22)*GS.dpr, angle:rand(0,Math.PI*2) }; }
   function spawnMines(n){
     const arr=[]; for(let i=0;i<n;i++) arr.push({ base:{x:rand(GS.w*0.2,GS.w*0.8), y:rand(GS.h*0.2,GS.h*0.8)}, amp:{x:rand(40,140)*(Math.random()<0.5?-1:1)*GS.dpr, y:rand(30,120)*(Math.random()<0.5?-1:1)*GS.dpr}, speed:rand(0.0004,0.001)*(Math.random()<0.5?-1:1), t:Math.random()*Math.PI*2, r:rand(10,16)*GS.dpr, hue:rand(350,20) });
     return arr;
   }
   const minePos=m=>({x:m.base.x+Math.sin(m.t)*m.amp.x, y:m.base.y+Math.cos(m.t*1.3)*m.amp.y});
 
-  function dropWell(x,y){ if(GS.wells.length>=2) GS.wells.shift(); GS.wells.push({pos:{x,y},born:GS.time,life:1200}); }
+  function dropWell(x,y){ if(GS.wells.length>=MAX_WELLS) GS.wells.shift(); GS.wells.push({pos:{x,y},born:GS.time,life:1200}); }
   function addPulse(x,y,r0,r1,color){ GS.effects.push({x,y,r0,r1,life:520,born:GS.time,color}); }
 
   // -------- Render primitives --------
   function glowCircle(x,y,r,color,blur=28){ ctx.save(); ctx.shadowBlur=blur; ctx.shadowColor=color; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   function ring(x,y,r,color,w=3){ ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=w; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+  function drawShard(s){
+    glowCircle(s.pos.x,s.pos.y,s.r*1.4,'#a78bfa');
+    ctx.save();
+    ctx.translate(s.pos.x,s.pos.y);
+    ctx.rotate(s.angle);
+    ctx.fillStyle='#a78bfa';
+    ctx.beginPath();
+    ctx.moveTo(0,-s.r);
+    ctx.lineTo(s.r,0);
+    ctx.lineTo(0,s.r);
+    ctx.lineTo(-s.r,0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
   function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,GS.h); g.addColorStop(0,'#0b1220'); g.addColorStop(1,'#030712'); ctx.fillStyle=g; ctx.fillRect(0,0,GS.w,GS.h); }
   function drawFlowfield(){
     ctx.save();
@@ -249,7 +278,7 @@
 
   function renderGame(){
     drawFlowfield();
-    glowCircle(GS.shard.pos.x,GS.shard.pos.y,GS.shard.r,'#a78bfa');
+    drawShard(GS.shard);
     for(const m of GS.mines){ const p=minePos(m); const color=`hsl(${m.hue},82%,60%)`; glowCircle(p.x,p.y,m.r,color,22); ctx.save(); ctx.fillStyle='rgba(255,255,255,.07)'; ctx.beginPath(); ctx.arc(p.x,p.y,Math.max(2,m.r*.45),0,Math.PI*2); ctx.fill(); ctx.restore(); }
     for(const w of GS.wells){ const t=(GS.time-w.born)/w.life; const r=60+40*(1-t); const a=.65*(1-t); ring(w.pos.x,w.pos.y,r,`rgba(125,211,252,${a})`); }
     glowCircle(GS.orb.pos.x,GS.orb.pos.y,GS.orb.r+1,'#22d3ee',18); ctx.save(); ctx.fillStyle='rgba(255,255,255,.9)'; ctx.beginPath(); ctx.arc(GS.orb.pos.x,GS.orb.pos.y,Math.max(2,GS.orb.r*.5),0,Math.PI*2); ctx.fill(); ctx.restore();
@@ -259,10 +288,10 @@
   // -------- Phase control --------
   function show(el, on){ el.style.display=on?'':'none'; }
   function gameOver(){
-    playSound(110,'sawtooth',0.5,0.25);
+    playSound(110,'sine',0.5,0.25);
     GS.phase='gameover'; cancelAnimationFrame(raf); raf=null; finalScore.textContent=GS.orb.score; GS.best=Math.max(GS.best,GS.orb.score); finalBest.textContent=GS.best; localStorage.setItem('slingfield_best', GS.best); updateHud(); show(menu,false); show(gameover,true);
   }
-  function startGame(){ initAudio(); GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); canvas.focus(); if(!raf) loop(); }
+  function startGame(){ if(GS.soundOn) initAudio(); GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); canvas.focus(); if(!raf) loop(); }
 
   startBtn.onclick=startGame;
   retryBtn.onclick=startGame;
