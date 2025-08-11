@@ -137,9 +137,14 @@
   new ResizeObserver(resize).observe(canvas.parentElement); resize();
 
   canvas.addEventListener('pointermove',e=>{
-    const r=canvas.getBoundingClientRect(); GS.pointer.x=(e.clientX-r.left)*dpr; GS.pointer.y=(e.clientY-r.top)*dpr;
+    const r=canvas.getBoundingClientRect();
+    GS.pointer.x=(e.clientX-r.left)*dpr;
+    GS.pointer.y=(e.clientY-r.top)*dpr;
   });
-  canvas.addEventListener('pointerdown',()=>{
+  canvas.addEventListener('pointerdown',e=>{
+    const r=canvas.getBoundingClientRect();
+    GS.pointer.x=(e.clientX-r.left)*dpr;
+    GS.pointer.y=(e.clientY-r.top)*dpr;
     if (GS.phase!=='playing') return;
     if (GS.cooldownMs>0) return;
     dropWell(GS.pointer.x,GS.pointer.y);
