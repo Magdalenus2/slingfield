@@ -141,7 +141,25 @@
   function glowCircle(x,y,r,color,blur=28){ ctx.save(); ctx.shadowBlur=blur; ctx.shadowColor=color; ctx.fillStyle=color; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.restore(); }
   function ring(x,y,r,color,w=3){ ctx.save(); ctx.strokeStyle=color; ctx.lineWidth=w; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
   function drawBackground(){ const g=ctx.createLinearGradient(0,0,0,GS.h); g.addColorStop(0,'#0b1220'); g.addColorStop(1,'#030712'); ctx.fillStyle=g; ctx.fillRect(0,0,GS.w,GS.h); }
-  function drawFlowfield(){ ctx.save(); ctx.globalAlpha=.08; ctx.strokeStyle='#7dd3fc'; ctx.lineWidth=1; const step=36; for(let y=40;y<GS.h;y+=step){ ctx.beginPath(); for(let x=20;x<GS.w;x+=step){ const t=noise2D(x*0.0012,y*0.0012,GS.time*0.0002); const off=Math.sin(t*Math.PI*2)*14; ctx.lineTo(x+off,y);} ctx.stroke(); } ctx.restore(); }
+  function drawFlowfield(){
+    ctx.save();
+    ctx.globalAlpha=.08;
+    ctx.strokeStyle='#7dd3fc';
+    ctx.lineWidth=1;
+    const step=36;
+    for(let y=40;y<GS.h;y+=step){
+      ctx.beginPath();
+      let first=true;
+      for(let x=20;x<GS.w;x+=step){
+        const t=noise2D(x*0.0012,y*0.0012,GS.time*0.0002);
+        const off=Math.sin(t*Math.PI*2)*14;
+        if(first){ ctx.moveTo(x+off,y); first=false; }
+        else ctx.lineTo(x+off,y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   function updateHud(){ scoreEl.textContent=GS.orb.score; bestEl.textContent=GS.best; }
   function drawUIHud(){ ctx.save(); ctx.font=`600 ${Math.max(14,Math.min(22,GS.w/40))}px ui-sans-serif,system-ui,-apple-system`; ctx.textAlign='center'; ctx.fillStyle='rgba(226,232,240,.72)'; if(GS.phase!=='playing'){ ctx.fillText('Click / tap to drop a gravity well', GS.w/2, 48); } ring(GS.pointer.x,GS.pointer.y,18,'rgba(125,211,252,.35)',2); ctx.restore(); }
