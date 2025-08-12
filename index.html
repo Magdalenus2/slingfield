@@ -179,7 +179,7 @@
   function initGame(){
     GS.time=0; GS.level=1; GS.effects.length=0; GS.wells.length=0; GS.cooldownMs=0;
     GS.pointer.x=GS.w/2; GS.pointer.y=GS.h/2;
-    GS.orb={pos:{x:GS.w*0.3,y:GS.h*0.6}, vel:{x:0.12*dpr,y:-0.10*dpr}, r:9, score:0};
+    GS.orb={pos:{x:GS.w*0.3,y:GS.h*0.6}, vel:{x:0.06*dpr,y:-0.05*dpr}, r:9, score:0};
     GS.shard=spawnShard(48*dpr,48*dpr,GS.w-96*dpr,GS.h-96*dpr);
     GS.mines=spawnMines(3);
     updateHud();
@@ -293,7 +293,7 @@
     // wells decay + forces
     GS.wells=GS.wells.filter(w=>GS.time-w.born<w.life);
     let ax=0, ay=0; const k=1200*dpr; for(const w of GS.wells){ const dx=w.pos.x-o.pos.x, dy=w.pos.y-o.pos.y; const d2=dx*dx+dy*dy+2000; const f=k/d2; ax+=f*dx; ay+=f*dy; }
-    o.vel.x+=ax*dt/1000; o.vel.y+=ay*dt/1000; o.vel.x*=Math.pow(0.9995,dt); o.vel.y*=Math.pow(0.9995,dt); o.pos.x+=o.vel.x*dt; o.pos.y+=o.vel.y*dt;
+    o.vel.x+=ax*dt/1000; o.vel.y+=ay*dt/1000; o.vel.x*=Math.pow(0.998,dt); o.vel.y*=Math.pow(0.998,dt); o.pos.x+=o.vel.x*dt; o.pos.y+=o.vel.y*dt;
     // bounds
     const pad=18*dpr; if(o.pos.x<pad){o.pos.x=pad;o.vel.x=Math.abs(o.vel.x)*.92} if(o.pos.x>GS.w-pad){o.pos.x=GS.w-pad;o.vel.x=-Math.abs(o.vel.x)*.92} if(o.pos.y<pad){o.pos.y=pad;o.vel.y=Math.abs(o.vel.y)*.92} if(o.pos.y>GS.h-pad){o.pos.y=GS.h-pad;o.vel.y=-Math.abs(o.vel.y)*.92}
     // mines
