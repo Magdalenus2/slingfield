@@ -189,7 +189,7 @@
     const minDim=Math.min(GS.w,GS.h);
     return {
       pos:{x:rand(minX,maxX),y:rand(minY,maxY)},
-      r:rand(0.08,0.1)*minDim,
+      r:rand(0.07,0.09)*minDim,
       angle:rand(0,Math.PI*2)
     };
   }
@@ -228,9 +228,9 @@
     // Outer crystal shape
     ctx.beginPath();
     ctx.moveTo(0,-s.r);
-    ctx.lineTo(s.r*0.6,s.r);
-    ctx.lineTo(0,s.r*0.3);
-    ctx.lineTo(-s.r*0.6,s.r);
+    ctx.lineTo(s.r,0);
+    ctx.lineTo(0,s.r);
+    ctx.lineTo(-s.r,0);
     ctx.closePath();
     ctx.fill();
     // Edge highlight
