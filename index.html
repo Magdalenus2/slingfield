@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"> 
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -160,19 +160,19 @@
     GS.pointer.x=(e.clientX-r.left)*dpr;
     GS.pointer.y=(e.clientY-r.top)*dpr;
     if (GS.phase!=='playing') return;
-    if (GS.cooldownMs>0) return;
+    if (GS.cooldownMs>0 && GS.wells.length>=MAX_WELLS) return;
     dropWell(GS.pointer.x,GS.pointer.y);
     playSound(220,'sine',0.08,0.2);
-    GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
+    if (GS.cooldownMs<=0) GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
   });
   canvas.addEventListener('keydown',e=>{
     if(e.code!=='Space') return;
     e.preventDefault();
     if (GS.phase!=='playing') return;
-    if (GS.cooldownMs>0) return;
+    if (GS.cooldownMs>0 && GS.wells.length>=MAX_WELLS) return;
     dropWell(GS.pointer.x,GS.pointer.y);
     playSound(220,'sine',0.08,0.2);
-    GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
+    if (GS.cooldownMs<=0) GS.cooldownMs=1000; addPulse(GS.pointer.x,GS.pointer.y,120,600,'#7dd3fc');
   });
 
   // -------- Game init --------
@@ -185,7 +185,14 @@
     updateHud();
   }
 
-  function spawnShard(minX,minY,maxX,maxY){ return { pos:{x:rand(minX,maxX),y:rand(minY,maxY)}, r:rand(14,22)*GS.dpr, angle:rand(0,Math.PI*2) }; }
+  function spawnShard(minX,minY,maxX,maxY){
+    const minDim=Math.min(GS.w,GS.h);
+    return {
+      pos:{x:rand(minX,maxX),y:rand(minY,maxY)},
+      r:rand(0.08,0.1)*minDim,
+      angle:rand(0,Math.PI*2)
+    };
+  }
   function spawnMines(n){
     const arr=[];
     const minDim=Math.min(GS.w,GS.h);
@@ -215,15 +222,29 @@
     g.addColorStop(0,'#fff');
     g.addColorStop(0.3,'#e9d5ff');
     g.addColorStop(1,'#a78bfa');
-    ctx.fillStyle = g;
-    ctx.shadowColor = '#a78bfa';
-    ctx.shadowBlur = 22;
+    ctx.fillStyle=g;
+    ctx.shadowColor='#a78bfa';
+    ctx.shadowBlur=22;
+    // Outer crystal shape
     ctx.beginPath();
     ctx.moveTo(0,-s.r);
     ctx.lineTo(s.r*0.6,s.r);
     ctx.lineTo(0,s.r*0.3);
     ctx.lineTo(-s.r*0.6,s.r);
     ctx.closePath();
+    ctx.fill();
+    // Edge highlight
+    ctx.strokeStyle='rgba(255,255,255,.6)';
+    ctx.lineWidth=s.r*0.1;
+    ctx.stroke();
+    // Inner facets
+    ctx.beginPath();
+    ctx.moveTo(0,-s.r*0.6);
+    ctx.lineTo(s.r*0.6,0);
+    ctx.lineTo(0,s.r*0.6);
+    ctx.lineTo(-s.r*0.6,0);
+    ctx.closePath();
+    ctx.fillStyle='rgba(255,255,255,.25)';
     ctx.fill();
     ctx.restore();
   }
