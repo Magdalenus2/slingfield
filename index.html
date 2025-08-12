@@ -38,6 +38,7 @@
       <div style="display:flex;gap:12px;align-items:center">
         <div class="pill">Score <b id="score" aria-live="polite">0</b></div>
         <div class="pill">Best <b id="best">0</b></div>
+        <div class="pill" id="diff">Easy</div>
         <div class="cooldown"><svg viewBox="0 0 36 36" width="28" height="28">
           <path d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="3"/>
           <path id="cd" d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32" fill="none" stroke="url(#g)" stroke-width="3" stroke-linecap="round" pathLength="1"/>
@@ -51,14 +52,15 @@
       <div class="card">
         <div class="title" id="menuTitle">✨ <span>Slingfield — Neon Gravity</span></div>
         <p style="margin:0 0 12px 0; font-size:14px; color:#cbd5e1">Drop short‑lived gravity wells to bend the comet. Collect shards, avoid mines. Click / tap to place a well. Max two wells, ~1 s cooldown.</p>
-        <label for="difficulty" style="display:block;font-size:14px;color:#cbd5e1;margin:0 0 12px 0">
+        <p style="margin:0 0 12px 0; font-size:14px; color:#cbd5e1">High Scores: Easy <b id="bestEasy">0</b> | Challenging <b id="bestChallenging">0</b> | Insane <b id="bestInsane">0</b></p>
+        <div style="display:block;font-size:14px;color:#cbd5e1;margin:0 0 12px 0">
           Difficulty
-          <select id="difficulty" style="margin-left:8px;border-radius:8px;padding:6px 10px;background:rgba(255,255,255,.06);color:#e5e7eb;border:1px solid rgba(255,255,255,.1)">
-            <option value="easy">Easy</option>
-            <option value="challenging">Challenging</option>
-            <option value="insane">Insane</option>
-          </select>
-        </label>
+          <div id="difficulty" class="btns" style="margin-top:8px">
+            <button class="primary diffBtn" data-diff="easy">Easy</button>
+            <button class="ghost diffBtn" data-diff="challenging">Challenging</button>
+            <button class="ghost diffBtn" data-diff="insane">Insane</button>
+          </div>
+        </div>
         <div class="btns">
           <button class="primary" id="startBtn">New Game</button>
           <button class="ghost" id="howBtn" title="Quick help">How to Play</button>
@@ -105,16 +107,40 @@
   const menuBtn=document.getElementById('menuBtn');
   const finalScore=document.getElementById('finalScore');
   const finalBest=document.getElementById('finalBest');
-  const difficultySelect=document.getElementById('difficulty');
+  const diffBtns=Array.from(document.querySelectorAll('.diffBtn'));
+  const diffEl=document.getElementById('diff');
+  const bestEasyEl=document.getElementById('bestEasy');
+  const bestChallengingEl=document.getElementById('bestChallenging');
+  const bestInsaneEl=document.getElementById('bestInsane');
 
   const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
   const MAX_WELLS=2;
-  const DRAG={easy:0.998,challenging:0.999,insane:0.9995};
+  const DRAG={easy:0.998,challenging:0.999,insane:1};
 
   const GS={ctx,w:0,h:0,dpr,last:performance.now(),time:0,orb:null,wells:[],shard:null,mines:[],effects:[],cooldownMs:0,level:1,pointer:{x:0,y:0},phase:'menu',best:0,soundOn:true,difficulty:'easy'};
 
-  const storedBest=Number(localStorage.getItem('slingfield_best'));
-  if(!isNaN(storedBest)) GS.best=storedBest;
+  const bestScores={
+    easy:Number(localStorage.getItem('slingfield_best_easy')||0),
+    challenging:Number(localStorage.getItem('slingfield_best_challenging')||0),
+    insane:Number(localStorage.getItem('slingfield_best_insane')||0)
+  };
+  function updateMenuScores(){
+    bestEasyEl.textContent=bestScores.easy;
+    bestChallengingEl.textContent=bestScores.challenging;
+    bestInsaneEl.textContent=bestScores.insane;
+  }
+  updateMenuScores();
+
+  let selectedDifficulty='easy';
+  diffBtns.forEach(btn=>{
+    btn.onclick=()=>{
+      selectedDifficulty=btn.dataset.diff;
+      diffBtns.forEach(b=>{b.classList.remove('primary'); b.classList.add('ghost');});
+      btn.classList.add('primary');
+      btn.classList.remove('ghost');
+    };
+  });
+
   const storedSound=localStorage.getItem('slingfield_sound');
   if(storedSound==='off') GS.soundOn=false;
   soundBtn.textContent=GS.soundOn?'🔊':'🔇';
@@ -279,7 +305,11 @@
     ctx.restore();
   }
 
-  function updateHud(){ scoreEl.textContent=GS.orb.score; bestEl.textContent=GS.best; }
+  function updateHud(){
+    scoreEl.textContent=GS.orb.score;
+    bestEl.textContent=GS.best;
+    diffEl.textContent=GS.difficulty.charAt(0).toUpperCase()+GS.difficulty.slice(1);
+  }
   function drawUIHud(){ ctx.save(); ctx.font=`600 ${Math.max(14,Math.min(22,GS.w/40))}px ui-sans-serif,system-ui,-apple-system`; ctx.textAlign='center'; ctx.fillStyle='rgba(226,232,240,.72)'; if(GS.phase!=='playing'){ ctx.fillText('Click / tap to drop a gravity well', GS.w/2, 48); } ring(GS.pointer.x,GS.pointer.y,18,'rgba(125,211,252,.35)',2); ctx.restore(); }
 
   // -------- Game loop --------
@@ -335,9 +365,9 @@
   function show(el, on){ el.style.display=on?'':'none'; }
   function gameOver(){
     playSound(110,'sine',0.5,0.25);
-    GS.phase='gameover'; cancelAnimationFrame(raf); raf=null; finalScore.textContent=GS.orb.score; GS.best=Math.max(GS.best,GS.orb.score); finalBest.textContent=GS.best; localStorage.setItem('slingfield_best', GS.best); updateHud(); show(menu,false); show(gameover,true);
+    GS.phase='gameover'; cancelAnimationFrame(raf); raf=null; finalScore.textContent=GS.orb.score; GS.best=Math.max(GS.best,GS.orb.score); finalBest.textContent=GS.best; bestScores[GS.difficulty]=GS.best; localStorage.setItem('slingfield_best_'+GS.difficulty, GS.best); updateHud(); updateMenuScores(); show(menu,false); show(gameover,true);
   }
-  function startGame(){ if(GS.soundOn) initAudio(); GS.difficulty=difficultySelect.value; GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); canvas.focus(); if(!raf) loop(); }
+  function startGame(){ if(GS.soundOn) initAudio(); GS.difficulty=selectedDifficulty; GS.best=bestScores[GS.difficulty]; GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); canvas.focus(); if(!raf) loop(); }
 
   startBtn.onclick=startGame;
   retryBtn.onclick=startGame;
