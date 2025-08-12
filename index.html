@@ -211,9 +211,13 @@
     ctx.save();
     ctx.translate(s.pos.x,s.pos.y);
     ctx.rotate(s.angle);
-    ctx.fillStyle='#a78bfa';
-    ctx.shadowColor='#a78bfa';
-    ctx.shadowBlur=18;
+    const g=ctx.createLinearGradient(-s.r,-s.r,s.r,s.r);
+    g.addColorStop(0,'#fff');
+    g.addColorStop(0.3,'#e9d5ff');
+    g.addColorStop(1,'#a78bfa');
+    ctx.fillStyle = g;
+    ctx.shadowColor = '#a78bfa';
+    ctx.shadowBlur = 22;
     ctx.beginPath();
     ctx.moveTo(0,-s.r);
     ctx.lineTo(s.r*0.6,s.r);
