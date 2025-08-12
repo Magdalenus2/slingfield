@@ -225,6 +225,7 @@
     ctx.fillStyle=g;
     ctx.shadowColor='#a78bfa';
     ctx.shadowBlur=22;
+    // Outer crystal shape
     ctx.beginPath();
     ctx.moveTo(0,-s.r);
     ctx.lineTo(s.r*0.6,s.r);
@@ -232,9 +233,11 @@
     ctx.lineTo(-s.r*0.6,s.r);
     ctx.closePath();
     ctx.fill();
+    // Edge highlight
     ctx.strokeStyle='rgba(255,255,255,.6)';
     ctx.lineWidth=s.r*0.1;
     ctx.stroke();
+    // Inner facets
     ctx.beginPath();
     ctx.moveTo(0,-s.r*0.6);
     ctx.lineTo(s.r*0.6,0);
