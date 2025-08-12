@@ -189,7 +189,8 @@
     const minDim=Math.min(GS.w,GS.h);
     return {
       pos:{x:rand(minX,maxX),y:rand(minY,maxY)},
-      r:rand(0.08,0.1)*minDim
+      r:rand(0.08,0.1)*minDim,
+      angle:rand(0,Math.PI*2)
     };
   }
   function spawnMines(n){
@@ -216,18 +217,19 @@
   function drawShard(s){
     ctx.save();
     ctx.translate(s.pos.x,s.pos.y);
+    ctx.rotate(s.angle);
     const g=ctx.createLinearGradient(-s.r,-s.r,s.r,s.r);
     g.addColorStop(0,'#fff');
-    g.addColorStop(0.4,'#e9d5ff');
+    g.addColorStop(0.3,'#e9d5ff');
     g.addColorStop(1,'#a78bfa');
     ctx.fillStyle=g;
     ctx.shadowColor='#a78bfa';
     ctx.shadowBlur=22;
     ctx.beginPath();
     ctx.moveTo(0,-s.r);
-    ctx.lineTo(s.r,0);
-    ctx.lineTo(0,s.r);
-    ctx.lineTo(-s.r,0);
+    ctx.lineTo(s.r*0.6,s.r);
+    ctx.lineTo(0,s.r*0.3);
+    ctx.lineTo(-s.r*0.6,s.r);
     ctx.closePath();
     ctx.fill();
     ctx.strokeStyle='rgba(255,255,255,.6)';
