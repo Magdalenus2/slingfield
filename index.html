@@ -51,6 +51,12 @@
       <div class="card">
         <div class="title" id="menuTitle">✨ <span>Slingfield — Neon Gravity</span></div>
         <p style="margin:0 0 12px 0; font-size:14px; color:#cbd5e1">Drop short‑lived gravity wells to bend the comet. Collect shards, avoid mines. Click / tap to place a well. Max two wells, ~1 s cooldown.</p>
+        <p style="margin:0;font-size:14px;color:#cbd5e1">Difficulty</p>
+        <div class="btns" id="difficulty" style="margin:6px 0 12px 0">
+          <button class="primary diff-btn" data-diff="easy">Easy</button>
+          <button class="ghost diff-btn" data-diff="challenging">Challenging</button>
+          <button class="ghost diff-btn" data-diff="insane">Insane</button>
+        </div>
         <div class="btns">
           <button class="primary" id="startBtn">New Game</button>
           <button class="ghost" id="howBtn" title="Quick help">How to Play</button>
@@ -97,11 +103,22 @@
   const menuBtn=document.getElementById('menuBtn');
   const finalScore=document.getElementById('finalScore');
   const finalBest=document.getElementById('finalBest');
+  const difficultyBtns=document.querySelectorAll('.diff-btn');
+  let selectedDifficulty='easy';
+  difficultyBtns.forEach(btn=>{
+    btn.onclick=()=>{
+      selectedDifficulty=btn.dataset.diff;
+      difficultyBtns.forEach(b=>{b.classList.remove('primary'); b.classList.add('ghost');});
+      btn.classList.remove('ghost');
+      btn.classList.add('primary');
+    };
+  });
 
   const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
   const MAX_WELLS=2;
+  const DRAG={easy:0.998,challenging:0.999,insane:1};
 
-  const GS={ctx,w:0,h:0,dpr,last:performance.now(),time:0,orb:null,wells:[],shard:null,mines:[],effects:[],cooldownMs:0,level:1,pointer:{x:0,y:0},phase:'menu',best:0,soundOn:true};
+  const GS={ctx,w:0,h:0,dpr,last:performance.now(),time:0,orb:null,wells:[],shard:null,mines:[],effects:[],cooldownMs:0,level:1,pointer:{x:0,y:0},phase:'menu',best:0,soundOn:true,difficulty:'easy'};
 
   const storedBest=Number(localStorage.getItem('slingfield_best'));
   if(!isNaN(storedBest)) GS.best=storedBest;
@@ -293,7 +310,8 @@
     // wells decay + forces
     GS.wells=GS.wells.filter(w=>GS.time-w.born<w.life);
     let ax=0, ay=0; const k=1200*dpr; for(const w of GS.wells){ const dx=w.pos.x-o.pos.x, dy=w.pos.y-o.pos.y; const d2=dx*dx+dy*dy+2000; const f=k/d2; ax+=f*dx; ay+=f*dy; }
-    o.vel.x+=ax*dt/1000; o.vel.y+=ay*dt/1000; o.vel.x*=Math.pow(0.998,dt); o.vel.y*=Math.pow(0.998,dt); o.pos.x+=o.vel.x*dt; o.pos.y+=o.vel.y*dt;
+    const drag=DRAG[GS.difficulty];
+    o.vel.x+=ax*dt/1000; o.vel.y+=ay*dt/1000; o.vel.x*=Math.pow(drag,dt); o.vel.y*=Math.pow(drag,dt); o.pos.x+=o.vel.x*dt; o.pos.y+=o.vel.y*dt;
     // bounds
     const pad=18*dpr; if(o.pos.x<pad){o.pos.x=pad;o.vel.x=Math.abs(o.vel.x)*.92} if(o.pos.x>GS.w-pad){o.pos.x=GS.w-pad;o.vel.x=-Math.abs(o.vel.x)*.92} if(o.pos.y<pad){o.pos.y=pad;o.vel.y=Math.abs(o.vel.y)*.92} if(o.pos.y>GS.h-pad){o.pos.y=GS.h-pad;o.vel.y=-Math.abs(o.vel.y)*.92}
     // mines
@@ -326,7 +344,7 @@
     playSound(110,'sine',0.5,0.25);
     GS.phase='gameover'; cancelAnimationFrame(raf); raf=null; finalScore.textContent=GS.orb.score; GS.best=Math.max(GS.best,GS.orb.score); finalBest.textContent=GS.best; localStorage.setItem('slingfield_best', GS.best); updateHud(); show(menu,false); show(gameover,true);
   }
-  function startGame(){ if(GS.soundOn) initAudio(); GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); canvas.focus(); if(!raf) loop(); }
+  function startGame(){ if(GS.soundOn) initAudio(); GS.difficulty=selectedDifficulty; GS.phase='playing'; initGame(); show(menu,false); show(gameover,false); canvas.focus(); if(!raf) loop(); }
 
   startBtn.onclick=startGame;
   retryBtn.onclick=startGame;
